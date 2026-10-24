@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<link rel="icon" type="image/png" href="/img/logo.png" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Generar turno · SISBÉN</title>
+<style>
+  :root {
+    --rojo: #C81324; --rojo-osc: #7A0D18; --negro: #141414; --gris-osc: #2B2B2B;
+    --fondo: #F6F6F5; --tarjeta: #FFFFFF; --texto: #171717; --texto-sua: #6B6B6B;
+    --linea: #E7E4E3; --verde: #1E8E4E; --verde-fondo: #E9F7EF;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fondo); font-family: 'IBM Plex Sans', system-ui, sans-serif; color: var(--texto); }
+  header { background: #fff; border-bottom: 4px solid var(--rojo); padding: 18px 20px 16px; display: flex; align-items: center; gap: 14px; }
+  header img { height: 46px; }
+  header .titulos h1 { font-family: Georgia, serif; font-weight: 700; font-size: 19px; margin: 0 0 2px; color: var(--negro); }
+  header .titulos p { margin: 0; opacity: .7; font-size: 13px; }
+  main { max-width: 480px; margin: 24px auto 40px; padding: 0 16px; }
+  .tarjeta { background: var(--tarjeta); border-radius: 14px; padding: 22px; box-shadow: 0 8px 24px rgba(20,20,20,0.08); margin-bottom: 16px; border-top: 3px solid var(--rojo); }
+  .tarjeta h2 { font-size: 14px; margin: 0 0 14px; color: var(--negro); font-family: Georgia, serif; }
+  .contador { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: var(--texto-sua); margin-bottom: 14px; }
+  .contador b { color: var(--rojo); font-size: 16px; }
+  label { display: block; font-size: 13px; font-weight: 600; color: var(--texto-sua); margin: 14px 0 6px; }
+  input, select { width: 100%; padding: 11px 12px; border-radius: 7px; border: 1.5px solid var(--linea); font-size: 15px; font-family: inherit; }
+  input:focus, select:focus { outline: 2px solid var(--rojo); outline-offset: 1px; border-color: var(--rojo); }
+  button { width: 100%; margin-top: 18px; background: linear-gradient(135deg, var(--rojo), var(--rojo-osc)); color: #fff; border: none; padding: 14px; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; }
+  button:hover:not(:disabled) { filter: brightness(1.08); }
+  button:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .error { background: #FBEAEA; border: 1px solid #F0C0C0; color: var(--rojo-osc); border-radius: 8px; padding: 10px 12px; font-size: 13.5px; margin-top: 14px; }
+  .resultado { text-align: center; }
+  .resultado .codigo { font-size: 46px; font-weight: 700; background: linear-gradient(135deg, var(--rojo), var(--rojo-osc)); -webkit-background-clip: text; background-clip: text; color: transparent; font-family: Georgia, serif; margin: 6px 0; }
+  .resultado p { color: var(--texto-sua); font-size: 14px; margin: 2px 0; }
+  .secundario { background: transparent; border: 1.5px solid var(--negro); color: var(--negro); margin-top: 10px; }
+  .aviso-pico { background: #FCECEC; border: 1.5px solid #E9B8B8; border-radius: 9px; padding: 12px 14px; font-size: 13.5px; color: var(--rojo-osc); margin-bottom: 16px; line-height: 1.5; }
+  .aviso-pico b { font-weight: 700; }
+  .excepcion-linea { display: flex; align-items: center; gap: 8px; margin-top: 16px; font-size: 13.5px; color: var(--texto-sua); }
+  .excepcion-linea input { width: auto; }
+
+  /* ── Carrusel de calendario ─────────────────────────────────────── */
+  .carrusel-fila { display: flex; align-items: center; gap: 6px; }
+  .carrusel-flecha {
+    all: unset; flex: 0 0 auto; width: 30px; height: 60px; display: flex; align-items: center;
+    justify-content: center; cursor: pointer; color: var(--rojo); font-size: 18px; font-weight: 700;
+    border-radius: 8px;
+  }
+  .carrusel-flecha:hover { background: var(--fondo); }
+  .carrusel-pista {
+    display: flex; gap: 9px; overflow-x: auto; scroll-behavior: smooth; scroll-snap-type: x mandatory;
+    padding: 3px 2px 8px; flex: 1 1 auto;
+  }
+  .carrusel-pista::-webkit-scrollbar { height: 5px; }
+  .carrusel-pista::-webkit-scrollbar-thumb { background: var(--linea); border-radius: 4px; }
+  .dia-tarjeta {
+    scroll-snap-align: start; flex: 0 0 auto; width: 66px; padding: 10px 4px 8px; border-radius: 10px;
+    border: 1.5px solid var(--linea); background: #fff; text-align: center; cursor: pointer;
+    transition: border-color .12s, background .12s, transform .12s;
+  }
+  .dia-tarjeta:hover { border-color: var(--rojo); }
+  .dia-tarjeta .nombre-dia { font-size: 10.5px; font-weight: 700; text-transform: uppercase; color: var(--texto-sua); letter-spacing: .03em; }
+  .dia-tarjeta .numero-dia { font-size: 21px; font-weight: 700; color: var(--negro); font-family: Georgia, serif; margin: 2px 0; }
+  .dia-tarjeta .mes-dia { font-size: 10.5px; color: var(--texto-sua); text-transform: capitalize; }
+  .dia-tarjeta .cupos-dia { font-size: 9.5px; color: var(--texto-sua); margin-top: 5px; }
+  .dia-tarjeta .punto-grupo { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-top: 4px; }
+  .dia-tarjeta.seleccionado { border-color: var(--rojo); background: #FCECEC; transform: translateY(-2px); }
+  .dia-tarjeta.seleccionado .numero-dia { color: var(--rojo-osc); }
+  .dia-tarjeta.no-coincide { opacity: .45; }
+  .dia-tarjeta.lleno { opacity: .35; cursor: not-allowed; }
+  .dia-tarjeta.lleno .cupos-dia { color: var(--rojo); font-weight: 600; }
+  .leyenda-calendario { display: flex; gap: 14px; font-size: 11.5px; color: var(--texto-sua); margin-top: 8px; flex-wrap: wrap; }
+  .leyenda-calendario span { display: inline-flex; align-items: center; gap: 4px; }
+  .leyenda-punto { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+</style>
+</head>
+<body>
+  <header>
+    <img src="/img/logo.png" alt="SISBÉN" />
+    <div class="titulos">
+      <h1>Generar turno</h1>
+      <p>Diligencia los datos del ciudadano para asignarle un turno.</p>
+    </div>
+    <button type="button" onclick="cerrarSesion()" style="margin-left:auto;background:#fff;border:1.5px solid #E7E4E3;border-radius:7px;padding:9px 12px;font-size:12.5px;cursor:pointer;color:#6B6B6B;white-space:nowrap;">Cerrar sesión</button>
+  </header>
+
+  <main>
+    <div class="tarjeta">
+      <h2>Elige el día de la cita</h2>
+      <div class="carrusel-fila">
+        <button type="button" class="carrusel-flecha" onclick="moverCarrusel(-1)" aria-label="Días anteriores">‹</button>
+        <div class="carrusel-pista" id="carruselPista"></div>
+        <button type="button" class="carrusel-flecha" onclick="moverCarrusel(1)" aria-label="Días siguientes">›</button>
+      </div>
+      <div class="leyenda-calendario">
+        <span><span class="leyenda-punto" style="background:var(--rojo)"></span>Par</span>
+        <span><span class="leyenda-punto" style="background:var(--negro)"></span>Impar</span>
+        <span id="leyendaCoincide" style="display:none">Días atenuados: no coinciden con la cédula digitada</span>
+      </div>
+    </div>
+
+    <div class="tarjeta">
+      <div class="contador">Turnos generados ese día: <b id="contador">— / 200</b></div>
+
+      <div id="avisoPico" class="aviso-pico" style="display:none"></div>
+
+      <div id="formulario">
+        <label>Nombre completo</label>
+        <input id="nombre" placeholder="Nombre y apellidos" />
+
+        <label>Tipo de documento</label>
+        <select id="tipoDocumento">
+          <option value="CC">Cédula de ciudadanía</option>
+          <option value="TI">Tarjeta de identidad</option>
+          <option value="CE">Cédula de extranjería</option>
+          <option value="RC">Registro civil</option>
+        </select>
+
+        <label>Número de documento</label>
+        <input id="documento" placeholder="Solo números" inputmode="numeric" />
+
+        <label>Número de teléfono</label>
+        <input id="telefono" placeholder="3001234567" inputmode="numeric" />
+
+        <label>Correo electrónico (opcional, para enviar confirmación)</label>
+        <input id="correo" placeholder="correo@ejemplo.com" type="email" />
+
+        <div class="excepcion-linea">
+          <input type="checkbox" id="excepcion" onchange="document.getElementById('motivoExcepcionCont').style.display = this.checked ? 'block' : 'none'" />
+          <label style="margin:0" for="excepcion">Aplica excepción a pico y cédula (adulto mayor, discapacidad, urgencia, etc.)</label>
+        </div>
+        <div id="motivoExcepcionCont" style="display:none">
+          <label>Motivo de la excepción</label>
+          <input id="motivoExcepcion" placeholder="Ej. adulto mayor" />
+        </div>
+
+        <div id="error" class="error" style="display:none"></div>
+
+        <button id="btnGenerar" onclick="generarTurno()">Generar turno</button>
+      </div>
+
+      <div id="resultado" class="resultado" style="display:none">
+        <p>Turno asignado</p>
+        <div class="codigo" id="codigoTurno"></div>
+        <p id="nombreTurno"></p>
+        <p id="fechaTurnoTexto" style="font-weight:600"></p>
+        <p id="notaCorreo" style="font-size:12.5px"></p>
+        <button class="secundario" onclick="nuevoTurno()">Generar otro turno</button>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    async function cerrarSesion() {
+      await fetch("/api/logout", { method: "POST" });
+      location.href = "/login.html";
+    }
+  </script>
+  <script>
+    let diasCalendario = [];
+    let fechaSeleccionada = null;
+
+    function debounce(fn, ms) {
+      let t;
+      return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+    }
+
+    async function cargarCalendario() {
+      const documento = document.getElementById("documento").value.trim();
+      try {
+        const url = "/api/dias-disponibles" + (documento ? `?documento=${encodeURIComponent(documento)}` : "");
+        const r = await fetch(url);
+        const d = await r.json();
+        diasCalendario = d.dias || [];
+        if (!fechaSeleccionada || !diasCalendario.some((x) => x.fecha === fechaSeleccionada)) {
+          const primeraDisponible = diasCalendario.find((x) => !x.lleno) || diasCalendario[0];
+          fechaSeleccionada = primeraDisponible ? primeraDisponible.fecha : null;
+        }
+        document.getElementById("leyendaCoincide").style.display = documento ? "inline-flex" : "none";
+        pintarCarrusel();
+        actualizarContadorYAviso();
+      } catch (e) { /* silencioso */ }
+    }
+
+    function pintarCarrusel() {
+      const pista = document.getElementById("carruselPista");
+      pista.innerHTML = "";
+      diasCalendario.forEach((dia) => {
+        const [, mes, num] = dia.fecha.split("-");
+        const nombreCorto = dia.diaSemana.slice(0, 3);
+        const mesTexto = dia.etiqueta.split(" ").pop();
+
+        const div = document.createElement("div");
+        div.className = "dia-tarjeta";
+        if (dia.fecha === fechaSeleccionada) div.classList.add("seleccionado");
+        if (dia.lleno) div.classList.add("lleno");
+        if (dia.permitidoParaDocumento === false) div.classList.add("no-coincide");
+
+        div.innerHTML = `
+          <div class="nombre-dia">${nombreCorto}</div>
+          <div class="numero-dia">${Number(num)}</div>
+          <div class="mes-dia">${mesTexto}</div>
+          <div class="punto-grupo" style="background:${dia.grupo === "par" ? "var(--rojo)" : "var(--negro)"}"></div>
+          <div class="cupos-dia">${dia.lleno ? "Lleno" : `${dia.cuposUsados}/${dia.cuposTope}`}</div>
+        `;
+        div.onclick = () => {
+          fechaSeleccionada = dia.fecha;
+          pintarCarrusel();
+          actualizarContadorYAviso();
+        };
+        pista.appendChild(div);
+      });
+
+      const seleccionado = pista.querySelector(".seleccionado");
+      if (seleccionado) seleccionado.scrollIntoView({ inline: "center", block: "nearest" });
+    }
+
+    function moverCarrusel(direccion) {
+      document.getElementById("carruselPista").scrollBy({ left: direccion * 160, behavior: "smooth" });
+    }
+
+    function diaSeleccionadoInfo() {
+      return diasCalendario.find((x) => x.fecha === fechaSeleccionada) || null;
+    }
+
+    function actualizarContadorYAviso() {
+      const info = diaSeleccionadoInfo();
+      const boton = document.getElementById("btnGenerar");
+      if (!info) {
+        document.getElementById("contador").textContent = "— / 200";
+        return;
+      }
+      document.getElementById("contador").textContent = `${info.cuposUsados} / ${info.cuposTope}`;
+      boton.disabled = info.lleno;
+
+      const el = document.getElementById("avisoPico");
+      el.style.display = "block";
+      const cuando = info.fecha === diasCalendario[0]?.fecha ? "el día seleccionado (hoy)" : `el ${info.etiqueta}`;
+      el.innerHTML = `<b>Pico y cédula ${cuando}:</b> solo se atienden cédulas terminadas en dígito <b>${info.grupo}</b> (${info.grupo === "par" ? "0, 2, 4, 6, 8" : "1, 3, 5, 7, 9"}). Si no aplica, marca la excepción o elige otro día.`;
+    }
+
+    function mostrarError(msg) {
+      const el = document.getElementById("error");
+      el.textContent = msg;
+      el.style.display = "block";
+    }
+
+    async function generarTurno() {
+      document.getElementById("error").style.display = "none";
+      if (!fechaSeleccionada) {
+        mostrarError("Elige un día en el calendario.");
+        return;
+      }
+      const nombre = document.getElementById("nombre").value;
+      const tipoDocumento = document.getElementById("tipoDocumento").value;
+      const documento = document.getElementById("documento").value;
+      const telefono = document.getElementById("telefono").value;
+      const correo = document.getElementById("correo").value;
+      const excepcion = document.getElementById("excepcion").checked;
+      const motivoExcepcion = document.getElementById("motivoExcepcion").value;
+
+      const boton = document.getElementById("btnGenerar");
+      boton.disabled = true;
+      boton.textContent = "Generando…";
+
+      try {
+        const r = await fetch("/api/turnos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nombre, tipoDocumento, documento, telefono, correo, excepcion, motivoExcepcion, fecha: fechaSeleccionada }),
+        });
+        const d = await r.json();
+        if (!r.ok) {
+          mostrarError(d.error || "No se pudo generar el turno.");
+          boton.disabled = false;
+          boton.textContent = "Generar turno";
+          return;
+        }
+        document.getElementById("formulario").style.display = "none";
+        document.getElementById("resultado").style.display = "block";
+        document.getElementById("codigoTurno").textContent = d.codigo;
+        document.getElementById("nombreTurno").textContent = d.nombre;
+        const info = diaSeleccionadoInfo();
+        document.getElementById("fechaTurnoTexto").textContent = info ? `Cita: ${info.diaSemana} ${info.etiqueta}` : `Fecha: ${d.fecha}`;
+        document.getElementById("notaCorreo").textContent = d.correo ? `Se envió un recordatorio a ${d.correo}` : "";
+        cargarCalendario();
+      } catch (e) {
+        mostrarError("No hay conexión con el servidor. Verifica la red.");
+        boton.disabled = false;
+        boton.textContent = "Generar turno";
+      }
+    }
+
+    function nuevoTurno() {
+      document.getElementById("nombre").value = "";
+      document.getElementById("documento").value = "";
+      document.getElementById("telefono").value = "";
+      document.getElementById("correo").value = "";
+      document.getElementById("tipoDocumento").selectedIndex = 0;
+      document.getElementById("excepcion").checked = false;
+      document.getElementById("motivoExcepcion").value = "";
+      document.getElementById("motivoExcepcionCont").style.display = "none";
+      document.getElementById("resultado").style.display = "none";
+      document.getElementById("formulario").style.display = "block";
+      const boton = document.getElementById("btnGenerar");
+      boton.disabled = false;
+      boton.textContent = "Generar turno";
+      cargarCalendario();
+    }
+
+    document.getElementById("documento").addEventListener("input", debounce(cargarCalendario, 350));
+
+    cargarCalendario();
+    setInterval(cargarCalendario, 15000);
+  </script>
+</body>
+</html>

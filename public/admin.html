@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<link rel="icon" type="image/png" href="/img/logo.png" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Administración de turnos · SISBÉN</title>
+<style>
+  :root { --rojo: #C81324; --rojo-osc: #7A0D18; --negro: #141414; --fondo: #F6F6F5; --texto: #171717; --texto-sua: #6B6B6B; --linea: #E7E4E3; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fondo); font-family: 'IBM Plex Sans', system-ui, sans-serif; color: var(--texto); }
+  header { background: #fff; border-bottom: 4px solid var(--rojo); padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+  .marca { display: flex; align-items: center; gap: 12px; }
+  .marca img { height: 40px; }
+  header h1 { font-family: Georgia, serif; font-weight: 700; font-size: 19px; margin: 0; color: var(--negro); }
+  header p { margin: 2px 0 0; opacity: .7; font-size: 13px; }
+  a.boton { background: linear-gradient(135deg, var(--rojo), var(--rojo-osc)); color: #fff; text-decoration: none; padding: 10px 16px; border-radius: 7px; font-weight: 600; font-size: 14px; white-space: nowrap; }
+  #estadoSheets { font-size: 12px; margin-top: 4px; color: var(--texto-sua); }
+  #estadoSheets.activo { color: var(--rojo); font-weight: 600; }
+  main { max-width: 900px; margin: 20px auto; padding: 0 16px 40px; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 14px rgba(20,20,20,.06); }
+  th, td { text-align: left; padding: 10px 12px; font-size: 13.5px; border-bottom: 1px solid var(--linea); }
+  th { background: #F2EEED; color: var(--texto-sua); font-weight: 600; text-transform: uppercase; font-size: 11.5px; letter-spacing: .04em; }
+  td:first-child { color: var(--rojo); font-weight: 700; }
+  tr:last-child td { border-bottom: none; }
+  .vacio { text-align: center; color: var(--texto-sua); padding: 30px; }
+  .selector-fecha { display: flex; align-items: center; gap: 8px; }
+  .selector-fecha label { font-size: 12px; color: var(--texto-sua); font-weight: 600; }
+  .selector-fecha input[type="date"] { padding: 8px 10px; border-radius: 7px; border: 1.5px solid var(--linea); font-size: 13.5px; font-family: inherit; }
+  .selector-fecha button { padding: 8px 12px; border-radius: 7px; border: 1.5px solid var(--linea); background: #fff; font-size: 13px; cursor: pointer; }
+  .selector-fecha button:hover { border-color: var(--rojo); }
+</style>
+</head>
+<body>
+  <header>
+    <div class="marca">
+      <img src="/img/logo.png" alt="SISBÉN" />
+      <div>
+        <h1 id="tituloTabla">Turnos de hoy</h1>
+        <p id="resumen">Cargando…</p>
+        <p id="estadoSheets"></p>
+      </div>
+    </div>
+    <div class="selector-fecha">
+      <label for="fechaVer">Ver día:</label>
+      <input type="date" id="fechaVer" />
+      <button type="button" onclick="irAHoy()">Hoy</button>
+    </div>
+    <a class="boton" id="botonCSV" href="/api/turnos/csv" download>Descargar CSV (para Google Sheets)</a>
+    <button type="button" id="botonSalir" onclick="cerrarSesion()" style="background:#fff;border:1.5px solid var(--linea);border-radius:7px;padding:10px 14px;font-size:13px;cursor:pointer;color:var(--texto-sua);">Cerrar sesión</button>
+  </header>
+  <main>
+    <table id="tabla">
+      <thead>
+        <tr><th>Turno</th><th>Nombre</th><th>Documento</th><th>N° Documento</th><th>Teléfono</th><th>Correo</th><th>Hora</th></tr>
+      </thead>
+      <tbody id="cuerpo"></tbody>
+    </table>
+  </main>
+
+  <script>
+    async function cerrarSesion() {
+      await fetch("/api/logout", { method: "POST" });
+      location.href = "/login.html";
+    }
+    function fechaISOHoyLocal() {
+      const d = new Date();
+      const offset = d.getTimezoneOffset() * 60000;
+      return new Date(d - offset).toISOString().slice(0, 10);
+    }
+
+    function fechaSeleccionadaEnInput() {
+      return document.getElementById("fechaVer").value || fechaISOHoyLocal();
+    }
+
+    async function cargar() {
+      const fecha = fechaSeleccionadaEnInput();
+      const esHoy = fecha === fechaISOHoyLocal();
+      document.getElementById("tituloTabla").textContent = esHoy ? "Turnos de hoy" : `Turnos del ${fecha}`;
+      document.getElementById("botonCSV").href = `/api/turnos/csv?fecha=${fecha}`;
+
+      const r = await fetch(`/api/turnos?fecha=${fecha}`);
+      const d = await r.json();
+      document.getElementById("resumen").textContent = `${d.turnos.length} de ${d.tope} turnos generados`;
+      const cuerpo = document.getElementById("cuerpo");
+      if (d.turnos.length === 0) {
+        cuerpo.innerHTML = `<tr><td colspan="7" class="vacio">Todavía no se han generado turnos para ${esHoy ? "hoy" : "ese día"}.</td></tr>`;
+        return;
+      }
+      cuerpo.innerHTML = d.turnos.map(t => `
+        <tr>
+          <td><strong>${t.codigo}</strong></td>
+          <td>${t.nombre}</td>
+          <td>${t.tipoDocumento}</td>
+          <td>${t.documento || "—"}</td>
+          <td>${t.telefono}</td>
+          <td>${t.correo || "—"}</td>
+          <td>${t.horaCreacion}</td>
+        </tr>
+      `).join("");
+    }
+    async function cargarEstado() {
+      try {
+        const r = await fetch(`/api/estado?fecha=${fechaSeleccionadaEnInput()}`);
+        const d = await r.json();
+        const el = document.getElementById("estadoSheets");
+        el.textContent = d.sheetsActivo ? "Sincronización con Google Sheets: activa ✔" : "Sincronización con Google Sheets: no configurada";
+        el.className = d.sheetsActivo ? "activo" : "";
+      } catch (e) { /* silencioso */ }
+    }
+
+    function irAHoy() {
+      document.getElementById("fechaVer").value = fechaISOHoyLocal();
+      cargar();
+      cargarEstado();
+    }
+
+    document.getElementById("fechaVer").value = fechaISOHoyLocal();
+    document.getElementById("fechaVer").addEventListener("change", () => { cargar(); cargarEstado(); });
+
+    cargar();
+    cargarEstado();
+    setInterval(cargar, 15000);
+  </script>
+</body>
+</html>

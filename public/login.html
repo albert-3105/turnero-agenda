@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<link rel="icon" type="image/png" href="/img/logo.png" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Iniciar sesión · Turnos SISBÉN</title>
+<style>
+  :root { --rojo: #C81324; --rojo-osc: #7A0D18; --negro: #141414; --fondo: #F6F6F5; --texto: #171717; --texto-sua: #6B6B6B; --linea: #E7E4E3; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--fondo); font-family: 'IBM Plex Sans', system-ui, sans-serif; color: var(--texto); }
+  .tarjeta { background: #fff; width: 100%; max-width: 360px; margin: 16px; border-radius: 14px; padding: 28px 26px; box-shadow: 0 8px 24px rgba(20,20,20,0.08); border-top: 3px solid var(--rojo); }
+  .marca { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+  .marca img { height: 42px; }
+  .marca h1 { font-family: Georgia, serif; font-weight: 700; font-size: 18px; margin: 0; color: var(--negro); }
+  .marca p { margin: 2px 0 0; font-size: 12.5px; color: var(--texto-sua); }
+  label { display: block; font-size: 13px; font-weight: 600; color: var(--texto-sua); margin: 14px 0 6px; }
+  input { width: 100%; padding: 11px 12px; border-radius: 7px; border: 1.5px solid var(--linea); font-size: 15px; font-family: inherit; }
+  input:focus { outline: 2px solid var(--rojo); outline-offset: 1px; border-color: var(--rojo); }
+  button { width: 100%; margin-top: 20px; background: linear-gradient(135deg, var(--rojo), var(--rojo-osc)); color: #fff; border: none; padding: 13px; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; }
+  button:hover:not(:disabled) { filter: brightness(1.08); }
+  button:disabled { opacity: .6; cursor: not-allowed; }
+  #mensaje { margin-top: 14px; font-size: 13.5px; color: var(--rojo); min-height: 18px; }
+</style>
+</head>
+<body>
+  <div class="tarjeta">
+    <div class="marca">
+      <img src="/img/logo.png" alt="SISBÉN" />
+      <div>
+        <h1>Turnos SISBÉN</h1>
+        <p>Acceso restringido — solo personal autorizado</p>
+      </div>
+    </div>
+    <form id="formLogin">
+      <label for="usuario">Usuario</label>
+      <input type="text" id="usuario" autocomplete="username" required autofocus />
+      <label for="contrasena">Contraseña</label>
+      <input type="password" id="contrasena" autocomplete="current-password" required />
+      <button type="submit" id="botonEntrar">Entrar</button>
+      <p id="mensaje"></p>
+    </form>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const destino = params.get("volver") || "/asesor.html";
+
+    document.getElementById("formLogin").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const boton = document.getElementById("botonEntrar");
+      const mensaje = document.getElementById("mensaje");
+      const usuario = document.getElementById("usuario").value.trim();
+      const contrasena = document.getElementById("contrasena").value;
+
+      boton.disabled = true;
+      mensaje.textContent = "";
+
+      try {
+        const r = await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ usuario, contrasena }),
+        });
+        const d = await r.json();
+        if (!r.ok) {
+          mensaje.textContent = d.error || "No se pudo iniciar sesión.";
+          boton.disabled = false;
+          return;
+        }
+        location.href = destino;
+      } catch (err) {
+        mensaje.textContent = "No se pudo conectar con el servidor.";
+        boton.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

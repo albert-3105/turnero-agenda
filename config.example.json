@@ -1,0 +1,13 @@
+{
+  "sheetId": "",
+  "diasAgendaAnticipada": 14,
+  "correoAdmin": "",
+  "smtp": {
+    "host": "smtp.gmail.com",
+    "puerto": 587,
+    "seguro": false,
+    "usuario": "",
+    "clave": "",
+    "remitente": "Turnos <tucorreo@ejemplo.com>"
+  }
+}
